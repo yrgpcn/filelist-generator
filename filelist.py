@@ -451,6 +451,11 @@ def main():
 
     errors = []
     files, folder_count = scan_folder(source, hidden, recursive, exclude, errors, skip_names)
+
+    # 超过 Excel 单工作表行数上限时截断，避免保存失败
+    if len(files) > MAX_SHEET_ROWS:
+        print(f"[警告] 文件数（{len(files)}）超过 Excel 单工作表上限（{MAX_SHEET_ROWS}），已截断至前 {MAX_SHEET_ROWS} 条。")
+        files = files[:MAX_SHEET_ROWS]
     wb = write_excel(openpyxl, files, folder_count, options, errors, link_base=os.path.dirname(output))
     saved = save_workbook(wb, output)
 

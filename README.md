@@ -35,6 +35,8 @@ python filelist.py            # 自动扫描脚本所在文件夹
 
 在 [Releases](https://github.com/) 下载 `filelist.exe`，放进任意文件夹双击即可。
 
+> 💡 **首次运行提示**：exe 未做数字签名，Windows SmartScreen 可能会提示“已保护你的电脑”。点击“更多信息 → 仍要运行”即可，这是未签名程序的正常现象，不影响使用。
+
 ## 命令行选项
 
 | 选项 | 说明 |

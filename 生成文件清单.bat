@@ -31,7 +31,7 @@ if not defined PY (
         "C:\Python312\python.exe"
         "C:\Python311\python.exe"
         "C:\Python310\python.exe"
-    ) do if not defined PY if exist %%p set "PY=%%p"
+    ) do if not defined PY if exist %%p set "PY=%%~p"
 )
 
 REM --- 4) No Python? Fall back to the standalone exe ---
