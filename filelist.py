@@ -303,7 +303,7 @@ def write_excel(openpyxl, files, folder_count, options, errors, link_base=None):
     total_size = sum(item.size for item in files)
     stats = [
         ("文件总数", len(files)),
-        ("文件夹总数", folder_count),
+        ("非空文件夹", len(set(item.folder for item in files))),
         ("总大小", format_size(total_size)),
         ("扫描时间", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
         ("超链接", "是" if use_links else "否"),
@@ -317,27 +317,32 @@ def write_excel(openpyxl, files, folder_count, options, errors, link_base=None):
         summary.cell(row=row, column=2).border = border
 
     summary.append([])
-    summary.append(["扩展名", "文件数量"])
+    summary.append(["扩展名", "文件数量", "占用大小"])
     header_row = summary.max_row
     green_fill = PatternFill("solid", fgColor="70AD47")
-    for column in (1, 2):
+    for column in (1, 2, 3):
         cell = summary.cell(row=header_row, column=column)
         cell.fill = green_fill
         cell.font = Font(bold=True, color="FFFFFF")
         cell.alignment = center
         cell.border = border
 
-    ext_count = {}
+    ext_stats = {}
     for item in files:
-        ext_count[item.ext] = ext_count.get(item.ext, 0) + 1
-    for ext, count in sorted(ext_count.items(), key=lambda pair: -pair[1]):
-        summary.append([ext, count])
+        if item.ext not in ext_stats:
+            ext_stats[item.ext] = [0, 0]
+        ext_stats[item.ext][0] += 1
+        ext_stats[item.ext][1] += item.size
+    for ext, (count, size) in sorted(ext_stats.items(), key=lambda pair: (-pair[1][1], -pair[1][0])):
+        summary.append([ext, count, format_size(size)])
         row = summary.max_row
         summary.cell(row=row, column=1).border = border
         summary.cell(row=row, column=2).border = border
+        summary.cell(row=row, column=3).border = border
 
-    summary.column_dimensions["A"].width = 18
-    summary.column_dimensions["B"].width = 24
+    summary.column_dimensions["A"].width = 14
+    summary.column_dimensions["B"].width = 16
+    summary.column_dimensions["C"].width = 16
 
     if errors:
         print(f"[注意] 有 {len(errors)} 个目录无法访问（已跳过）：")
@@ -461,7 +466,7 @@ def main():
 
     print("完成！")
     print(f"  文件总数：{len(files)}")
-    print(f"  文件夹总数：{folder_count}")
+    print(f"  非空文件夹：{len(set(item.folder for item in files))}")
     print(f"  总大小：{format_size(sum(item.size for item in files))}")
     print(f"  已保存：{saved}")
 
