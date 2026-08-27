@@ -172,16 +172,14 @@ def _make_file_info(root, full, name):
 def scan_folder(root, include_hidden, recursive, exclude, errors, skip_names=None):
     """扫描文件夹。
 
-    返回 (文件列表, 文件夹数量)。
+    返回文件列表。
     用显式栈代替系统递归，深层目录也不会超出 Python 递归上限；
     符号链接/联接只记录不进入，防止绕出根目录或死循环。
     """
     found = []
-    folder_count = 0
     stack = [root]
     while stack:
         current = stack.pop()
-        folder_count += 1
         try:
             entries = list(os.scandir(current))
         except OSError as exc:
@@ -211,10 +209,10 @@ def scan_folder(root, include_hidden, recursive, exclude, errors, skip_names=Non
             except OSError:
                 continue
     found.sort(key=lambda item: (item.folder, item.name.lower()))
-    return found, folder_count
+    return found
 
 
-def write_excel(openpyxl, files, folder_count, options, errors, link_base=None):
+def write_excel(openpyxl, files, options, errors, link_base=None):
     """把扫描结果写成 Excel 工作簿。"""
     wb = openpyxl.Workbook()
     sheet = wb.active
@@ -455,13 +453,13 @@ def main():
     }
 
     errors = []
-    files, folder_count = scan_folder(source, hidden, recursive, exclude, errors, skip_names)
+    files = scan_folder(source, hidden, recursive, exclude, errors, skip_names)
 
     # 超过 Excel 单工作表行数上限时截断，避免保存失败
     if len(files) > MAX_SHEET_ROWS:
         print(f"[警告] 文件数（{len(files)}）超过 Excel 单工作表上限（{MAX_SHEET_ROWS}），已截断至前 {MAX_SHEET_ROWS} 条。")
         files = files[:MAX_SHEET_ROWS]
-    wb = write_excel(openpyxl, files, folder_count, options, errors, link_base=os.path.dirname(output))
+    wb = write_excel(openpyxl, files, options, errors, link_base=os.path.dirname(output))
     saved = save_workbook(wb, output)
 
     print("完成！")

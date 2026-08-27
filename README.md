@@ -60,9 +60,12 @@ python filelist.py -s "D:/下载" -o "D:/下载/我的清单.xlsx"
 
 ```bash
 pip install pyinstaller openpyxl
-pyinstaller --onefile --name filelist filelist.py
+pyinstaller --onefile --name filelist --version-file filelist_version.txt filelist.py
 # 生成文件在 dist/filelist.exe
 ```
+
+exe 的文件属性（右键 → 属性 → 详细信息）里会显示作者信息
+（公司名 / 版权：Kwong Young）。
 
 ## 环境要求
 
