@@ -1,5 +1,6 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
+    # 注意：发布新版本时，请同步更新此处的版本号与 git 标签（如 v1.2.0）
     filevers=(1, 1, 0, 0),
     prodvers=(1, 1, 0, 0),
     mask=0x3f,
@@ -17,6 +18,7 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'Kwong Young'),
             StringStruct('FileDescription', '文件清单生成器'),
+            # 这里两处版本号也要一起改成新的（例如 1.2.0）
             StringStruct('FileVersion', '1.1.0'),
             StringStruct('InternalName', 'filelist'),
             StringStruct('LegalCopyright', 'Copyright © 2026 Kwong Young'),
