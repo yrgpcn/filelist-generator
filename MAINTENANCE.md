@@ -95,5 +95,33 @@
 - Chrome 下载目录在 `E:\Downloads`（非默认位置）。
 
 ### 5. 当前已知遗留
-- 本地存在一个历史残留标签 `v1.01`（无小数点分隔符，指向旧提交），远程也已存在；可在 GitHub 网页 Releases/Tags 页面删除以避免混淆。
 - 本地旧版 exe 在 `D:\常用软件\文件清单生成器\filelist.exe`（31.8 MB，无版本属性），建议替换为 Release 页下载的新版（9.11 MB）。
+
+## 七、仓库整洁度检查（2026-09-08 Codex 记录）
+
+### 1. 文件清单
+Git 追踪的 10 个文件全部有用，无冗余：
+
+| 文件 | 用途 |
+| --- | --- |
+| `filelist.py` | 主脚本 |
+| `生成文件清单.bat` | Windows 启动器 |
+| `filelist_version.txt` | PyInstaller 版本信息 |
+| `.github/workflows/build.yml` | Actions 自动构建 |
+| `requirements.txt` | openpyxl 依赖 |
+| `.gitignore` | 排除 Python 构建产物 |
+| `.gitattributes` | 换行符规范（.bat=CRLF, .py=LF） |
+| `README.md` / `MAINTENANCE.md` / `LICENSE` | 文档与许可 |
+
+工作目录干净（无未追踪文件），`.gitignore` 覆盖 `__pycache__/`、`dist/`、`build/`、`*.spec` 等构建产物。
+
+### 2. 标签清理建议
+| 标签 | 指向 | 状态 | 建议 |
+| --- | --- | --- | --- |
+| `v1.0.0` | 初始提交 `694d41c` | 历史版本 | 可保留也可删除，无 Release 挂载 |
+| `v1.01` | `4139287`（bat 引号修复） | **格式错误**（无小数点分隔符） | **建议删除**，避免与 `v1.0.1` 混淆 |
+| `v1.0.2` | `d796915`（当前 Release） | 正确 | 保留 |
+
+删除方法：GitHub 网页 → Releases/Tags → 找到对应标签 → 删除；或命令行 `git push origin :refs/tags/v1.01`（网络不稳时用网页操作更可靠）。
+
+> 删除标签不影响已有 commit 和 Release 页面内容，但如果该标签曾触发过 Actions 构建，对应 Release 的 exe 会保持不变（Release 是独立于标签存在的）。
