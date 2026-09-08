@@ -78,6 +78,10 @@ exe 的文件属性（右键 → 属性 → 详细信息）里会显示作者信
 - **提示 Python not found？** 电脑未安装 Python，请改用独立 exe，或安装 Python 后重试。
 - **生成的清单里没有脚本/exe 自身？** 这是设计如此，工具会跳过自身文件。
 
+## 开发与维护
+
+设计约束、历史踩坑教训、发布流程与回归测试清单见 [MAINTENANCE.md](MAINTENANCE.md)。修改代码前请先阅读。
+
 ## 许可证
 
 [MIT](LICENSE)
