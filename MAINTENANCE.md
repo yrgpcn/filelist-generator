@@ -66,3 +66,34 @@
 - [ ] 清单文件正被 Excel 打开时重跑：自动时间戳另存，不丢数据
 - [ ] 双击 .bat（有/无 Python 两种环境）：不闪退、乱码路径不产生垃圾文件
 - [ ] 未装 Python：.bat 正确回退到 filelist.exe
+
+## 六、GitHub Actions 自动构建（Codex 验证记录）
+
+### 1. 已验证可用（v1.0.2 Release 实测通过）
+- 工作流 `.github/workflows/build.yml`：Windows runner + Python 3.12 + PyInstaller。
+- 触发方式：
+  - **push tag `v*`** → 自动构建 exe 并发布 Release；
+  - **workflow_dispatch** → 手动触发（Actions 页面 → Build exe → Run workflow），仅构建 artifact，不发布 Release。
+- `permissions: contents: write` 必须保留，否则 softprops/action-gh-release 会因无写权限而 403。
+- v1.0.2 构建产物已验证：exe 约 9.11 MB，版本属性（FileVersion / CompanyName / LegalCopyright / ProductName）全部正确。
+
+### 2. 非阻塞警告
+当前使用的 `actions/checkout@v4`、`actions/setup-python@v5`、`actions/upload-artifact@v4`、`softprops/action-gh-release@v2` 底层运行在 Node.js 20 上，GitHub 已预告将弃用。功能不受影响，后续可逐个升级到更新的大版本以消除警告。
+
+### 3. 发布流程（推荐用 GitHub Desktop 操作）
+1. 在 `filelist_version.txt` 中同步更新**三处版本号**（`filevers` 元组、`prodvers` 元组、`FileVersion` 字符串、`ProductVersion` 字符串，实际共 4 处文本）。
+2. 在 GitHub Desktop 中提交并 push 到 main。
+3. 在 History 面板中右键目标提交 → **Create tag on this commit** → 输入标签号（如 `v1.1.0`）→ 确认后 push tag（GitHub Desktop 会自动把 tag 一并推送）。
+4. 等待 Actions 自动构建（通常 1-2 分钟），成功后 Release 页面会出现新版本并自动挂载 exe。
+5. 下载 exe 做冒烟测试（右键属性确认版本号、双击运行确认功能正常）。
+
+> **注意**：`workflow_dispatch` 手动触发只产出 artifact，不创建 Release。如果只想验证构建是否通过而不发布，用手动触发即可。
+
+### 4. 本机环境特点
+- 本机未安装 Python / PyInstaller，全靠 GitHub Actions 云端构建。
+- Git CLI 直连 github.com:443 常被网络代理干扰（SOCKS5），tag 推送可能反复失败；**建议统一用 GitHub Desktop 做 push 操作**（它走自己的网络栈，不受 CLI 代理影响）。
+- Chrome 下载目录在 `E:\Downloads`（非默认位置）。
+
+### 5. 当前已知遗留
+- 本地存在一个历史残留标签 `v1.01`（无小数点分隔符，指向旧提交），远程也已存在；可在 GitHub 网页 Releases/Tags 页面删除以避免混淆。
+- 本地旧版 exe 在 `D:\常用软件\文件清单生成器\filelist.exe`（31.8 MB，无版本属性），建议替换为 Release 页下载的新版（9.11 MB）。
