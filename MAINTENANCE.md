@@ -98,7 +98,7 @@
 - ~~本地旧版 exe 在 `D:\常用软件\文件清单生成器\filelist.exe`（31.8 MB，无版本属性），建议替换为 Release 页下载的新版（9.11 MB）。~~
   2026-09-08 复核：该 exe 已替换为 v1.0.2（9.11 MB，FileVersion/ProductVersion 均正确），此遗留已解决。
 - LICENSE 版权占位符已替换为 `Kwong Young`（与 exe 元数据 CompanyName/LegalCopyright 一致）。
-- 标签 `v1.01`：本地已不存在（仅 v1.0.0 / v1.0.2）；若 GitHub 网页端仍可见，需在 网页 → Releases/Tags 删除（本机 CLI 推送 443 不通）。
+- 标签 `v1.01`：2026-09-08 核实，本地与 GitHub 远端均已不存在（仅 v1.0.0 / v1.0.2），无需再处理。
 
 ## 七、仓库整洁度检查（2026-09-08 Codex 记录）
 
