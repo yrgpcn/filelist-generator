@@ -1,10 +1,11 @@
 @echo off
 REM ============================================================
 REM  File List Generator - Launcher (standard Python only)
-REM  Put this bat, filelist.py and filelist.exe into any folder,
+REM  Put this bat, filelist.py and filelist exe into any folder,
 REM  then double-click. It works with or without Python:
 REM    - Python 3 found: run filelist.py
-REM    - No Python:     auto-run filelist.exe
+REM    - No Python:     auto-run the standalone exe
+REM      (filelist.exe or filelist-vX.Y.Z.exe, newest first)
 REM  NO WorkBuddy dependency.
 REM ============================================================
 setlocal
@@ -34,19 +35,25 @@ if not defined PY (
     ) do if not defined PY if exist %%p set "PY=%%~p"
 )
 
-REM --- 4) No Python? Fall back to the standalone exe ---
-if not defined PY (
-    if exist "%~dp0filelist.exe" (
-        echo [INFO] No Python found, running filelist.exe ...
-        "%~dp0filelist.exe" %*
-        goto :end
-    )
-    echo [ERROR] Python 3 not found and filelist.exe is missing.
-    echo         Install Python from python.org and check "Add python.exe to PATH",
-    echo         or put filelist.exe in this folder.
-    goto :end
-)
+REM --- 4) Python found? run the script ---
+if defined PY goto :run_py
 
+REM --- 5) No Python. Fall back to the standalone exe ---
+set "EXE="
+if exist "%~dp0filelist.exe" set "EXE=%~dp0filelist.exe"
+if not defined EXE for /f "delims=" %%f in ('dir /b /a-d /o-d "%~dp0filelist-v*.exe" 2^>nul') do if not defined EXE set "EXE=%~dp0%%f"
+if not defined EXE goto :noexe
+echo [INFO] No Python found, running standalone exe: %EXE%
+"%EXE%" %*
+goto :end
+
+:noexe
+echo [ERROR] Python 3 not found and no filelist exe in this folder.
+echo         Install Python from python.org and check "Add python.exe to PATH",
+echo         or put filelist.exe / filelist-vX.Y.Z.exe in this folder.
+goto :end
+
+:run_py
 echo [INFO] Python: %PY%
 echo [INFO] Script: %~dp0filelist.py
 echo [INFO] Scan  : %~dp0

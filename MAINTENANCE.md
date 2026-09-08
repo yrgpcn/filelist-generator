@@ -8,7 +8,7 @@
 | 文件 | 职责 |
 | --- | --- |
 | `filelist.py` | 主脚本：扫描 → 生成 Excel。单文件、无第三方框架依赖 |
-| `生成文件清单.bat` | Windows 双击启动器：探测 Python（py launcher → PATH → 常见安装目录），都找不到时回退 `filelist.exe` |
+| `生成文件清单.bat` | Windows 双击启动器：探测 Python（py launcher → PATH → 常见安装目录），都找不到时回退独立 exe（`filelist.exe` 或 `filelist-vX.Y.Z.exe`） |
 | `filelist_version.txt` | PyInstaller exe 的版本信息文件（**发布时三处版本号需同步**，见第四节） |
 | `.github/workflows/` | GitHub Actions：打 tag 后自动构建 exe 并发布 Release |
 | `requirements.txt` | 声明 openpyxl 依赖 |
@@ -151,3 +151,21 @@ Git 追踪的 10 个文件全部有用，无冗余：
 
 > 2026-09-08：以上 5 项已在改动时通过命令行 / 单元 / 内存级测试完成自动化验证。
 > **待人工验证（冒烟）**（v1.1.0 exe 已发布，属 GUI 行为，无法自动验证）：将文件夹拖入 exe 控制台窗口后回车；将文件夹拖到 exe / bat 图标上；生成后 Excel 自动打开。
+
+## 九、v1.1.1 变更（2026-09-08）
+
+### 1. Release exe 文件名带版本号
+- 工作流在 PyInstaller 构建后新增重命名步骤：tag 触发时产物命名为 `filelist-vX.Y.Z.exe`（如 `filelist-v1.1.1.exe`），`workflow_dispatch` 无标签时为 `filelist-dev.exe`；Upload artifact 与 Release `files` 均改为通配 `dist/filelist-*.exe`。
+- 重命名逻辑已在本地以等价 PowerShell 语句验证两个分支输出正确。
+
+### 2. 启动器兼容带版本号的 exe
+- `生成文件清单.bat` 第 5 步回退逻辑：优先使用 `filelist.exe`；不存在时以 `dir /b /a-d /o-d "%~dp0filelist-v*.exe"` 探测最新的 `filelist-vX.Y.Z.exe`。探测逻辑的四个场景（无 exe / 仅带版本 / 两者并存 / 仅版本多份）已在隔离副本中实测通过；主 bat 的 Python / 无 Python 两条控制流路径另行验证。
+
+### 3. 文档与提示语措辞规范化
+- v1.1.0 新增内容中的口语化表述统一改为书面表述（如"拖进"→"拖入"、"坏链接"→"无效链接"、"互不串台"→"互不干扰"）。历史既有文本不追溯。
+
+### 4. 踩坑教训：整文件重写启动器时遗漏控制流门控
+- **现象**：本轮以整文件重写方式修改 .bat，把回退段从 `if not defined PY ( ... )` 块改为 goto 结构时，遗漏了块末尾的 `goto :end`——按顺序执行的话，检测到 Python 也会继续落入 exe 回退段，正常分支被跳过。
+- **发现方式**：重写后逐行核对 diff 时发现缺失跳转标签。
+- **修法**：Python 探测成功后 `if defined PY goto :run_py` 显式门控，回退段置于其后。
+- **教训**：对 .bat 这类靠标签与顺序执行控制流程的文件，禁止只验证新增片段——修改后必须整体核对控制流（Python 存在与否两条路径都要走到正确出口）；此教训与三.2"双重防御互相抵消"同属 bat 控制流类陷阱。

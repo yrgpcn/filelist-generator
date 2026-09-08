@@ -39,7 +39,7 @@ python filelist.py            # 自动扫描脚本所在文件夹
 
 ### 方式二：独立 exe（无需 Python）
 
-在 [Releases](https://github.com/) 下载 `filelist.exe`，放进任意文件夹双击即可。
+在 [Releases](https://github.com/) 下载 `filelist-v版本号.exe`（如 `filelist-v1.1.1.exe`），放进任意文件夹后双击，或连同 `生成文件清单.bat` 一起放入（bat 会自动识别带版本号的 exe）。
 
 > 💡 **首次运行提示**：exe 未做数字签名，Windows SmartScreen 可能会提示“已保护你的电脑”。点击“更多信息 → 仍要运行”即可，这是未签名程序的正常现象，不影响使用。
 
@@ -69,7 +69,7 @@ python filelist.py -s "D:/下载" -o "D:/下载/我的清单.xlsx"
 ```bash
 pip install pyinstaller openpyxl
 pyinstaller --onefile --name filelist --version-file filelist_version.txt filelist.py
-# 生成文件在 dist/filelist.exe
+# 生成文件在 dist/filelist.exe；GitHub Release 发布时会自动重命名为 filelist-vX.Y.Z.exe
 ```
 
 exe 的文件属性（右键 → 属性 → 详细信息）里会显示作者信息

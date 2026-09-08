@@ -30,17 +30,22 @@ jobs:
       - name: Build exe
         run: pyinstaller --onefile --name filelist --version-file filelist_version.txt filelist.py
 
+      - name: Rename exe with version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $ver = $env:GITHUB_REF_NAME } else { $ver = 'dev' }
+          Rename-Item -Path dist/filelist.exe -NewName "filelist-$ver.exe"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: filelist-exe
-          path: dist/filelist.exe
+          path: dist/filelist-*.exe
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/filelist.exe
+          files: dist/filelist-*.exe
           name: ${{ github.ref_name }}
           draft: false
           prerelease: false
