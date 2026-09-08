@@ -6,28 +6,39 @@
 一个放进任意文件夹就能用的 Excel 文件清单工具：
 运行后自动扫描【脚本所在文件夹】，生成 文件清单.xlsx。
 
+[拖曳运行]
+    把一个或多个文件夹拖到本程序的黑色窗口上（松手即可），回车确认；
+    或在未运行时直接把文件夹拖到 filelist.exe / 生成文件清单.bat 图标上。
+    每个文件夹各自生成自己的 文件清单.xlsx。
+
 [双击运行]
     把本脚本和 生成文件清单.bat 放在一起，双击 bat。
-    依次回答 3 个问题（直接回车 = 用默认值）：
+    先问扫描哪个文件夹（拖进来或直接回车用默认），再依次回答 4 个问题
+    （直接回车 = 用默认值）：
       1. 文件名要可点击的超链接吗？（默认：是）
       2. 要列出隐藏文件和隐藏文件夹吗？（默认：否）
       3. 要递归扫描子文件夹吗？（默认：是）
+      4. 生成后用 Excel 打开清单吗？（默认：是）
 
 [命令行运行]
-    python filelist.py [选项]
+    python filelist.py [文件夹 ...] [选项]
 
 选项：
+    文件夹           位置参数，支持拖曳；给了就扫描这些文件夹（优先于 -s）
     -s, --source     要扫描的文件夹（默认：脚本所在文件夹）
-    -o, --output     输出文件路径（默认：被扫描文件夹/文件清单.xlsx）
+    -o, --output     输出文件路径（默认：被扫描文件夹/文件清单.xlsx；多个文件夹时忽略）
         --links      文件名生成可点击超链接（相对路径，默认开启）
         --no-links   不生成超链接
         --hidden     列出隐藏文件和隐藏文件夹
         --no-hidden  不列出隐藏文件和隐藏文件夹（默认关闭）
         --recursive  递归进入子文件夹（默认开启）
         --no-recursive 只扫描顶层
+        --open       生成后自动用 Excel 打开清单
+        --no-open    生成后不自动打开（非交互环境下默认如此）
 
 示例：
     python filelist.py
+    python filelist.py "D:/照片" "D:/文档"      # 多个文件夹各生成一份清单
     python filelist.py --no-hidden
     python filelist.py --no-links --no-hidden
     python filelist.py -s "D:/下载" -o "D:/下载/我的清单.xlsx"
@@ -43,7 +54,9 @@
 import argparse
 import datetime
 import os
+import re
 import stat
+import subprocess
 import sys
 from collections import namedtuple
 from urllib.parse import quote
@@ -169,12 +182,14 @@ def _make_file_info(root, full, name):
     )
 
 
-def scan_folder(root, include_hidden, recursive, exclude, errors, skip_names=None):
+def scan_folder(root, include_hidden, recursive, exclude, errors):
     """扫描文件夹。
 
     返回文件列表。
     用显式栈代替系统递归，深层目录也不会超出 Python 递归上限；
     符号链接/联接只记录不进入，防止绕出根目录或死循环。
+    排除一律用绝对路径集合（exclude），不按文件名比对，
+    以免子目录中与工具同名的文件被误排除。
     """
     found = []
     stack = [root]
@@ -188,8 +203,6 @@ def scan_folder(root, include_hidden, recursive, exclude, errors, skip_names=Non
         for entry in entries:
             full = entry.path
             if os.path.normcase(os.path.abspath(full)) in exclude:
-                continue
-            if skip_names and entry.name.lower() in skip_names:
                 continue
             if not include_hidden and is_hidden(full):
                 continue
@@ -261,12 +274,16 @@ def write_excel(openpyxl, files, options, errors, link_base=None):
                 cell.number_format = "YYYY-MM-DD HH:MM"
         if use_links:
             target = None
+            truncated = False
             if link_base is not None:
                 candidate = relative_target(item.path, link_base)
-                if candidate is not None and len(candidate) <= MAX_LINK_LENGTH:
-                    target = candidate
-            truncated = False
-            if target is None:
+                if candidate is not None:
+                    if len(candidate) <= MAX_LINK_LENGTH:
+                        target = candidate
+                    else:
+                        # 相对路径本身已超链接长度上限：不生成被截断的坏链接，直接降级为纯文本 + 提示
+                        truncated = True
+            if target is None and not truncated:
                 target, truncated = hyperlink_target(item.path)
             name_cell = sheet.cell(row=row_index, column=2)
             path_cell = sheet.cell(row=row_index, column=7)
@@ -342,6 +359,39 @@ def write_excel(openpyxl, files, options, errors, link_base=None):
     summary.column_dimensions["B"].width = 16
     summary.column_dimensions["C"].width = 16
 
+    # ---- 子文件夹统计 ----
+    folders = wb.create_sheet("子文件夹统计")
+    folders.append(["所在文件夹", "文件数", "占用大小", "大小占比"])
+    folder_fill = PatternFill("solid", fgColor="ED7D31")
+    for column in range(1, 5):
+        cell = folders.cell(row=1, column=column)
+        cell.fill = folder_fill
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = center
+        cell.border = border
+
+    folder_stats = {}
+    for item in files:
+        agg = folder_stats.setdefault(item.folder, [0, 0])
+        agg[0] += 1
+        agg[1] += item.size
+    for folder_name, (count, size) in sorted(
+        folder_stats.items(), key=lambda pair: (-pair[1][1], pair[0])
+    ):
+        ratio = (size / total_size * 100) if total_size else 0.0
+        folders.append([folder_name, count, format_size(size), f"{ratio:.1f}%"])
+        row = folders.max_row
+        for column in range(1, 5):
+            folders.cell(row=row, column=column).border = border
+        folders.cell(row=row, column=2).alignment = center
+        folders.cell(row=row, column=3).alignment = center
+        folders.cell(row=row, column=4).alignment = center
+
+    folders.column_dimensions["A"].width = 40
+    folders.column_dimensions["B"].width = 10
+    folders.column_dimensions["C"].width = 14
+    folders.column_dimensions["D"].width = 10
+
     if errors:
         print(f"[注意] 有 {len(errors)} 个目录无法访问（已跳过）：")
         for message in errors[:10]:
@@ -366,6 +416,69 @@ def save_workbook(wb, target):
         return fallback
 
 
+DRAG_TOKEN_RE = re.compile(r'"([^"]*)"|([^\s"]+)')
+
+
+def parse_drag_paths(line):
+    """从一行文本里提取所有路径。
+
+    兼容两种来源：Windows 资源管理器拖进控制台/命令行传入的
+    带引号路径（可含空格），以及手打的无引号路径。
+    """
+    paths = []
+    for quoted, bare in DRAG_TOKEN_RE.findall(line):
+        token = (quoted or bare).strip()
+        if token:
+            paths.append(token)
+    return paths
+
+
+def filter_existing_dirs(candidates, quiet=False):
+    """保留真实存在的文件夹（解析为绝对路径），无效项给出提示。"""
+    valid = []
+    for raw in candidates:
+        full = os.path.abspath(raw)
+        if os.path.isdir(full):
+            valid.append(full)
+        elif not quiet:
+            print(f"[跳过] 不是有效的文件夹：{raw}")
+    return valid
+
+
+def ask_sources(interactive, default_dir):
+    """交互时让用户拖入/输入要扫描的文件夹；回车或无交互用默认。"""
+    if not interactive:
+        return [default_dir]
+    try:
+        answer = input("把要生成清单的文件夹拖进本窗口（可一次拖多个），"
+                       "或直接回车用默认文件夹：")
+    except EOFError:
+        return [default_dir]
+    answer = answer.strip()
+    if not answer:
+        return [default_dir]
+    valid = filter_existing_dirs(parse_drag_paths(answer))
+    if not valid:
+        print("[提示] 没有识别到有效文件夹，改用默认文件夹。")
+        return [default_dir]
+    return valid
+
+
+def open_workbook(path):
+    """用系统默认程序（通常是 Excel）打开清单文件。"""
+    try:
+        if sys.platform == "win32":
+            os.startfile(path)  # noqa: S606 - 打开用户刚生成的文件
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["xdg-open", path])
+        return True
+    except Exception as exc:
+        print(f"[提示] 自动打开失败（{exc}），请手动打开：{path}")
+        return False
+
+
 def main():
     console_safe()
 
@@ -373,10 +486,13 @@ def main():
         description="生成文件夹文件清单 (Excel)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("folders", nargs="*", metavar="文件夹",
+                        help="要扫描的文件夹，可给多个（支持把文件夹拖到 exe/bat 图标上）；"
+                             "给了就优先于 -s")
     parser.add_argument("-s", "--source", default=None,
                         help="要扫描的文件夹（默认：脚本所在文件夹）")
     parser.add_argument("-o", "--output", default=None,
-                        help="输出文件路径（默认：被扫描文件夹/文件清单.xlsx）")
+                        help="输出文件路径（默认：被扫描文件夹/文件清单.xlsx；多个文件夹时忽略）")
 
     group_links = parser.add_mutually_exclusive_group()
     group_links.add_argument("--links", dest="links", action="store_true",
@@ -399,6 +515,13 @@ def main():
                                  help="只扫描顶层")
     parser.set_defaults(recursive=None)
 
+    group_open = parser.add_mutually_exclusive_group()
+    group_open.add_argument("--open", dest="open_after", action="store_true",
+                            help="生成后自动打开清单")
+    group_open.add_argument("--no-open", dest="open_after", action="store_false",
+                            help="生成后不自动打开")
+    parser.set_defaults(open_after=None)
+
     args = parser.parse_args()
 
     interactive = sys.stdin.isatty()
@@ -420,40 +543,61 @@ def main():
         script_dir = os.path.dirname(os.path.abspath(sys.executable))
     else:
         script_dir = os.path.dirname(os.path.abspath(__file__))
-    source = os.path.abspath(args.source or script_dir)
+
+    # 扫描目标优先级：位置参数（拖到图标/命令行指定）> -s > 拖进窗口 > 脚本所在文件夹
+    sources = []
+    if args.folders:
+        sources = filter_existing_dirs(args.folders)
+    if not sources and args.source:
+        sources = filter_existing_dirs([args.source])
+    if not sources:
+        sources = ask_sources(interactive, script_dir)
+
     links = args.links if args.links is not None else ask("文件名要可点击的超链接吗？(Y/否，回车=是)：")
     hidden = args.hidden if args.hidden is not None else ask("要列出隐藏文件和隐藏文件夹吗？(Y/是，回车=否)：", default=False)
     recursive = args.recursive if args.recursive is not None else ask("要递归扫描子文件夹吗？(Y/否，回车=是)：")
-    output = os.path.abspath(args.output or os.path.join(source, "文件清单.xlsx"))
+    default_open = interactive
+    open_after = args.open_after if args.open_after is not None else ask("生成后用 Excel 打开清单吗？(Y/否，回车=是)：", default=default_open)
 
-    if not os.path.isdir(source):
-        print(f"[错误] 文件夹不存在：{source}")
-        sys.exit(1)
+    if len(sources) > 1 and args.output:
+        print("[提示] 指定了多个文件夹，-o 参数将被忽略，清单分别输出到各自文件夹。")
 
+    # 工具自身（脚本/exe + 同目录启动器 bat）不列入清单：一律用绝对路径比对，
+    # 不能按文件名比对——那会误排除被扫文件夹子目录中的同名文件（见 MAINTENANCE 二.1）
+    own_path = sys.executable if getattr(sys, "frozen", False) else __file__
+    own_paths = {
+        os.path.normcase(os.path.abspath(own_path)),
+        os.path.normcase(os.path.join(script_dir, "生成文件清单.bat")),
+    }
+
+    openpyxl = ensure_openpyxl(interactive)
     options = {"links": links, "hidden": hidden, "recursive": recursive}
+
+    for source in sources:
+        if args.output and len(sources) == 1:
+            output = os.path.abspath(args.output)
+        else:
+            output = os.path.abspath(os.path.join(source, "文件清单.xlsx"))
+        saved = generate_one(openpyxl, source, output, options, own_paths)
+        if open_after and saved:
+            open_workbook(saved)
+
+
+def generate_one(openpyxl, source, output, options, own_paths):
+    """扫描一个文件夹并生成它的清单文件。"""
+    links = options["links"]
+    hidden = options["hidden"]
+    recursive = options["recursive"]
 
     print(f"正在扫描：{source}")
     print(f"  超链接 = {'是' if links else '否'}，"
           f"隐藏文件 = {'是' if hidden else '否'}，"
           f"递归 = {'是' if recursive else '否'}")
 
-    openpyxl = ensure_openpyxl(interactive)
-
-    # 工具自身（脚本/exe + 启动器 bat）不列入清单
-    own_path = sys.executable if getattr(sys, "frozen", False) else __file__
-
     # 排除：工具自身 + 本次输出文件（大小写不敏感的绝对路径）
-    exclude = {
-        os.path.normcase(os.path.abspath(own_path)),
-        os.path.normcase(os.path.abspath(output)),
-    }
-    skip_names = {
-        os.path.basename(os.path.abspath(own_path)).lower(),
-        "生成文件清单.bat",
-    }
-
+    exclude = own_paths | {os.path.normcase(os.path.abspath(output))}
     errors = []
-    files = scan_folder(source, hidden, recursive, exclude, errors, skip_names)
+    files = scan_folder(source, hidden, recursive, exclude, errors)
 
     # 超过 Excel 单工作表行数上限时截断，避免保存失败
     if len(files) > MAX_SHEET_ROWS:
@@ -467,6 +611,7 @@ def main():
     print(f"  非空文件夹：{len(set(item.folder for item in files))}")
     print(f"  总大小：{format_size(sum(item.size for item in files))}")
     print(f"  已保存：{saved}")
+    return saved
 
 
 if __name__ == "__main__":
