@@ -59,23 +59,26 @@
 
 ## 五、回归测试要点（每次改动后过一遍）
 
-- [ ] 文件名含 `#`、`%`、空格、中文：链接可点击、指向正确文件
-- [ ] 根目录与子目录存在**同名**文件（如两个 filelist.py）：仅根目录被排除，子目录保留
-- [ ] 超长路径（URI > 255 字符）：降级为纯文本 + 提示，不报错
-- [ ] `--no-links` / `--no-recursive` 开关行为正确
-- [ ] 清单文件正被 Excel 打开时重跑：自动时间戳另存，不丢数据
+- [x] 文件名含 `#`、`%`、空格、中文：链接可点击、指向正确文件
+- [x] 根目录与子目录存在**同名**文件（如两个 filelist.py）：仅根目录被排除，子目录保留
+- [x] 超长路径（URI > 255 字符）：降级为纯文本 + 提示，不报错
+- [x] `--no-links` / `--no-recursive` 开关行为正确
+- [x] 清单文件正被 Excel 打开时重跑：自动时间戳另存，不丢数据
 - [ ] 双击 .bat（有/无 Python 两种环境）：不闪退、乱码路径不产生垃圾文件
 - [ ] 未装 Python：.bat 正确回退到 filelist.exe
 
+> 2026-09-08（v1.1.0）：前 5 项已通过 CLI / 单元级自动化验证（链接以生成的 Target 正确为准，Excel 内实际点击属 GUI 行为）；后 2 项涉及双击场景，留待人工冒烟。
+
 ## 六、GitHub Actions 自动构建（Codex 验证记录）
 
-### 1. 已验证可用（v1.0.2 Release 实测通过）
+### 1. 已验证可用（v1.0.2 / v1.1.0 Release 实测通过）
 - 工作流 `.github/workflows/build.yml`：Windows runner + Python 3.12 + PyInstaller。
 - 触发方式：
   - **push tag `v*`** → 自动构建 exe 并发布 Release；
   - **workflow_dispatch** → 手动触发（Actions 页面 → Build exe → Run workflow），仅构建 artifact，不发布 Release。
 - `permissions: contents: write` 必须保留，否则 softprops/action-gh-release 会因无写权限而 403。
 - v1.0.2 构建产物已验证：exe 约 9.11 MB，版本属性（FileVersion / CompanyName / LegalCopyright / ProductName）全部正确。
+- v1.1.0 构建产物已验证（2026-09-08）：Release 挂载 exe 9.11 MB，FileVersion / ProductVersion = 1.1.0、CompanyName = Kwong Young（经 API 下载核对）。
 
 ### 2. 非阻塞警告
 当前使用的 `actions/checkout@v4`、`actions/setup-python@v5`、`actions/upload-artifact@v4`、`softprops/action-gh-release@v2` 底层运行在 Node.js 20 上，GitHub 已预告将弃用。功能不受影响，后续可逐个升级到更新的大版本以消除警告。
@@ -90,8 +93,8 @@
 > **注意**：`workflow_dispatch` 手动触发只产出 artifact，不创建 Release。如果只想验证构建是否通过而不发布，用手动触发即可。
 
 ### 4. 本机环境特点
-- 本机未安装 Python / PyInstaller，全靠 GitHub Actions 云端构建。
-- Git CLI 直连 github.com:443 常被网络代理干扰（SOCKS5），tag 推送可能反复失败；**建议统一用 GitHub Desktop 做 push 操作**（它走自己的网络栈，不受 CLI 代理影响）。
+- 本机已安装 Python 3.12（`py -3` 可用，openpyxl 3.1.5 已装），可直接跑脚本与回归测试；未装 PyInstaller，exe 仍靠 GitHub Actions 云端构建。
+- Git CLI 直连 github.com:443 不通；实测**走本机回环代理可稳定推送**：`git -c http.proxy=http://127.0.0.1:10808 push origin main v1.1.0`（v1.1.0 发布即此方式成功）。代理软件未运行时回退 GitHub Desktop。
 - Chrome 下载目录在 `E:\Downloads`（非默认位置）。
 
 ### 5. 当前已知遗留
@@ -140,8 +143,11 @@ Git 追踪的 10 个文件全部有用，无冗余：
 - 现改为**只按绝对路径比对**：`scan_folder` 移除 `skip_names` 形参；工具自身与同目录 bat 在 `main` 里统一构建成 `own_paths`（绝对路径集合）传入。回归新增用例：子目录放一个 `filelist.py` 应被保留。
 
 ### 3. 相关回归补充（配合新功能，过一遍第五节清单之外）
-- [ ] 拖入含空格路径 `"D:\a b"`：能正确解析为一个路径
-- [ ] 一次拖入两个文件夹：各自生成 `文件清单.xlsx`，互不串台
-- [ ] 拖入不存在的路径：打印 `[跳过]`，全无效时回退默认文件夹
-- [ ] 子目录中存在 `filelist.py`：仅根目录工具被排除，子目录同名文件保留
-- [ ] 相对链接长度 > 255：降级为纯文本 + `[路径过长]` 提示，不生成被截断的坏链接
+- [x] 拖入含空格路径 `"D:\a b"`：能正确解析为一个路径
+- [x] 一次拖入两个文件夹：各自生成 `文件清单.xlsx`，互不串台
+- [x] 拖入不存在的路径：打印 `[跳过]`，全无效时回退默认文件夹
+- [x] 子目录中存在 `filelist.py`：仅根目录工具被排除，子目录同名文件保留
+- [x] 相对链接长度 > 255：降级为纯文本 + `[路径过长]` 提示，不生成被截断的坏链接
+
+> 2026-09-08：以上 5 项已在改动时通过 CLI / 单元 / 内存打桩自动化验证。
+> **待人工冒烟**（v1.1.0 exe 已发布，属 GUI 行为无法自动验证）：把文件夹拖进 exe 黑色窗口回车；把文件夹拖到 exe / bat 图标上；生成后 Excel 自动弹出。
