@@ -7,14 +7,14 @@
 运行后自动扫描【脚本所在文件夹】，生成 文件清单.xlsx。
 
 [拖曳运行]
-    把一个或多个文件夹拖到本程序的黑色窗口上（松手即可），回车确认；
-    或在未运行时直接把文件夹拖到 filelist.exe / 生成文件清单.bat 图标上。
-    每个文件夹各自生成自己的 文件清单.xlsx。
+    将一个或多个文件夹拖入本程序的控制台窗口，松开鼠标后按回车确认；
+    或在程序未启动时，将文件夹直接拖到 filelist.exe / 生成文件清单.bat 图标上。
+    每个文件夹各自生成一份 文件清单.xlsx。
 
 [双击运行]
     把本脚本和 生成文件清单.bat 放在一起，双击 bat。
-    先问扫描哪个文件夹（拖进来或直接回车用默认），再依次回答 4 个问题
-    （直接回车 = 用默认值）：
+    先询问要扫描的文件夹（可拖入路径，直接回车使用默认），再依次回答 4 个问题
+    （直接回车 = 使用默认值）：
       1. 文件名要可点击的超链接吗？（默认：是）
       2. 要列出隐藏文件和隐藏文件夹吗？（默认：否）
       3. 要递归扫描子文件夹吗？（默认：是）
@@ -281,7 +281,7 @@ def write_excel(openpyxl, files, options, errors, link_base=None):
                     if len(candidate) <= MAX_LINK_LENGTH:
                         target = candidate
                     else:
-                        # 相对路径本身已超链接长度上限：不生成被截断的坏链接，直接降级为纯文本 + 提示
+                        # 相对路径本身已超过链接长度上限：不生成被截断的无效链接，直接降级为纯文本并添加提示
                         truncated = True
             if target is None and not truncated:
                 target, truncated = hyperlink_target(item.path)
@@ -420,10 +420,10 @@ DRAG_TOKEN_RE = re.compile(r'"([^"]*)"|([^\s"]+)')
 
 
 def parse_drag_paths(line):
-    """从一行文本里提取所有路径。
+    """从一行文本中提取所有路径。
 
-    兼容两种来源：Windows 资源管理器拖进控制台/命令行传入的
-    带引号路径（可含空格），以及手打的无引号路径。
+    兼容两种来源：Windows 资源管理器拖入控制台或命令行传入的
+    带引号路径（可含空格），以及手动输入的无引号路径。
     """
     paths = []
     for quoted, bare in DRAG_TOKEN_RE.findall(line):
@@ -446,12 +446,12 @@ def filter_existing_dirs(candidates, quiet=False):
 
 
 def ask_sources(interactive, default_dir):
-    """交互时让用户拖入/输入要扫描的文件夹；回车或无交互用默认。"""
+    """交互时提示用户拖入或输入要扫描的文件夹；回车或无交互时使用默认。"""
     if not interactive:
         return [default_dir]
     try:
-        answer = input("把要生成清单的文件夹拖进本窗口（可一次拖多个），"
-                       "或直接回车用默认文件夹：")
+        answer = input("请将需要生成清单的文件夹拖入本窗口（可一次拖入多个），"
+                       "或直接回车使用默认文件夹：")
     except EOFError:
         return [default_dir]
     answer = answer.strip()
@@ -459,7 +459,7 @@ def ask_sources(interactive, default_dir):
         return [default_dir]
     valid = filter_existing_dirs(parse_drag_paths(answer))
     if not valid:
-        print("[提示] 没有识别到有效文件夹，改用默认文件夹。")
+        print("[提示] 未识别到有效文件夹，使用默认文件夹。")
         return [default_dir]
     return valid
 
@@ -468,7 +468,7 @@ def open_workbook(path):
     """用系统默认程序（通常是 Excel）打开清单文件。"""
     try:
         if sys.platform == "win32":
-            os.startfile(path)  # noqa: S606 - 打开用户刚生成的文件
+            os.startfile(path)  # noqa: S606 - 打开用户本次生成的文件
         elif sys.platform == "darwin":
             subprocess.Popen(["open", path])
         else:
@@ -487,8 +487,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("folders", nargs="*", metavar="文件夹",
-                        help="要扫描的文件夹，可给多个（支持把文件夹拖到 exe/bat 图标上）；"
-                             "给了就优先于 -s")
+                        help="要扫描的文件夹，可指定多个（支持将文件夹拖到 exe/bat 图标上）；"
+                             "指定后优先于 -s")
     parser.add_argument("-s", "--source", default=None,
                         help="要扫描的文件夹（默认：脚本所在文件夹）")
     parser.add_argument("-o", "--output", default=None,
@@ -544,7 +544,7 @@ def main():
     else:
         script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # 扫描目标优先级：位置参数（拖到图标/命令行指定）> -s > 拖进窗口 > 脚本所在文件夹
+    # 扫描目标优先级：位置参数（拖到图标或命令行指定）> -s > 拖入窗口 > 脚本所在文件夹
     sources = []
     if args.folders:
         sources = filter_existing_dirs(args.folders)
@@ -563,7 +563,7 @@ def main():
         print("[提示] 指定了多个文件夹，-o 参数将被忽略，清单分别输出到各自文件夹。")
 
     # 工具自身（脚本/exe + 同目录启动器 bat）不列入清单：一律用绝对路径比对，
-    # 不能按文件名比对——那会误排除被扫文件夹子目录中的同名文件（见 MAINTENANCE 二.1）
+    # 不可按文件名比对——那会误排除目标文件夹子目录中的同名文件（见 MAINTENANCE 二.1）
     own_path = sys.executable if getattr(sys, "frozen", False) else __file__
     own_paths = {
         os.path.normcase(os.path.abspath(own_path)),
