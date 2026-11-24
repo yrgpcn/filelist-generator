@@ -1,3 +1,5 @@
+> **当前 Project Orchestrator 版本：v2.5**（`manual-pr`，`e753fa739a4b2c8940735c4788518c76625d73b1`）。支持单主 Codex（`agent:codex`）或 Google Antigravity（`agent:antigravity`）+ `max_supported` 并发子 Agent，由 ChatGPT 独立 exact-HEAD 终审；阶段边界：`STAGE_ACCEPTED_READ_ONLY_MANUAL_HANDOFF / AUTONOMOUS_DISPATCH_BLOCKED`（文档/评论不自动派发，未启用自动合并或本地调度器）。以下原有状态与历史记录保持不变，实时任务以 GitHub Issue/PR 为准。
+
 # filelist-generator — Project Orchestrator v2 状态入口
 
 - **协作契约**：v2（2026-11-19），不改变本仓库实际产品版本或现有代码功能。
